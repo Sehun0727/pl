@@ -290,12 +290,6 @@ with tabs[1]:
                             plot_bgcolor="rgba(0,0,0,0)",
                             paper_bgcolor="rgba(0,0,0,0)",
                         )
-                        for ax, title in zip(
-                            (temp_ax, hum_ax),
-                            (("온도 변화", "습도 변화") if (temp_ax and hum_ax) else
-                             (("온도 변화",) if temp_ax else ("습도 변화",))),
-                        ):
-                            pass
                         st.plotly_chart(fig, width="stretch")
 
             # pH·EC 변화 (열이 있을 때만)
@@ -398,40 +392,60 @@ with tabs[2]:
                     })
                     st.dataframe(avg_d, width="stretch", hide_index=True)
 
-            # 생중량 분포 (박스플롯)
-            if "생중량" in g.columns and len(g) >= 3:
-                gc = g.dropna(subset=["생중량"])
-                if len(gc) >= 3:
-                    클래식 = gc["개체번호"].astype(str).tolist()
-                    vals = gc["생중량"].tolist()
-                    fig3 = go.Figure()
-                    fig3.add_trace(go.Box(
-                        y=vals,
-                        name="생중량",
-                        boxmean=True,
-                        fillcolor="rgba(52,152,219,0.55)",
-                        line=dict(color="#2c3e50", width=1.5),
-                        hovertemplate="개체: %{x}<br>생중량: %{y:.1f} g<extra></extra>",
-                        x=클래식,
-                    ))
-                    overall_mean = np.mean(vals)
-                    fig3.add_hline(
-                        y=overall_mean,
+            # ── 막대그래프: 개체별 생중량 분포 ────────────────────────────────
+            if "생중량" in g.columns and len(g) >= 2:
+                gc = g.dropna(subset=["생중량"]).copy()
+                if len(gc) >= 2:
+                    gc["_개체"] = gc["개체번호"].astype(str)
+                    avg_val = gc["생중량"].mean()
+                    fig_bar = px.bar(
+                        gc,
+                        x="_개체",
+                        y="생중량",
+                        labels={"_개체": "개체번호", "생중량": "생중량 (g)"},
+                        color="생중량",
+                        color_continuous_scale="RdYlGn",
+                        hover_data={"_개체": True, "생중량": ":,.1f"},
+                        title="개체별 생중량 (막대그래프)",
+                    )
+                    # 평균선 추가
+                    fig_bar.add_hline(
+                        y=avg_val,
                         line_dash="dot",
                         line_color="coral",
-                        annotation_text=f"전체 평균 {overall_mean:.1f} g",
+                        annotation_text=f"평균 {avg_val:.1f} g",
                         annotation_position="top right",
                     )
-                    fig3.update_layout(
-                        title="개체별 생중량 분포 (박스플롯)",
+                    # 가장 무거운/가벼운 개체 강조
+                    idx_max_v = gc["생중량"].idxmax()
+                    idx_min_v = gc["생중량"].idxmin()
+                    fig_bar.add_vline(
+                        x=str(gc.loc[idx_max_v, "_개체"]),
+                        line_color="gold",
+                        line_width=2,
+                        line_dash="dash",
+                        annotation_text="최대",
+                        annotation_position="top",
+                    )
+                    fig_bar.add_vline(
+                        x=str(gc.loc[idx_min_v, "_개체"]),
+                        line_color="steelblue",
+                        line_width=2,
+                        line_dash="dash",
+                        annotation_text="최소",
+                        annotation_position="top",
+                    )
+                    fig_bar.update_layout(
+                        xaxis_title="개체번호",
                         yaxis_title="생중량 (g)",
                         font=dict(family="Malgun Gothic, Apple SD Gothic Neo, sans-serif"),
-                        margin=dict(l=40, r=20, t=50, b=40),
+                        margin=dict(l=50, r=20, t=60, b=60),
                         plot_bgcolor="rgba(0,0,0,0)",
                         paper_bgcolor="rgba(0,0,0,0)",
-                        showlegend=False,
+                        coloraxis_showscale=True,
+                        height=420,
                     )
-                    st.plotly_chart(fig3, width="stretch")
+                    st.plotly_chart(fig_bar, width="stretch")
 
             # 피어슨 상관 + 추세선 산점도 + 히트맵
             corr_cols = list(dict.fromkeys(["생중량"] + 선택_열))
